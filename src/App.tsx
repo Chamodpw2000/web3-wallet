@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import './App.css'
 
 // Extend Window interface to include ethereum
@@ -18,7 +18,56 @@ function App() {
   const [contractAddr, setContractAddr] = useState<string>('');
   const [tokenBalance, setTokenBalance] = useState<string>('0');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
-  const [tokenAmount, setTokenAmount] = useState<string>(''); // Replace with your contract address
+  const [tokenAmount, setTokenAmount] = useState<string>('');
+
+  useEffect(() => {
+    if (window.ethereum) {
+      const handleAccountsChanged = async (accounts: string[]) => {
+        if (accounts.length === 0) {
+          // User disconnected their wallet
+          console.log("User disconnected wallet");
+          setAccount('');
+          setIsConnected(false);
+          setWeb3(null);
+          setTokenBalance('0');
+          setStatusMessage('You are not connected with MetaMask. Please connect to continue.');
+        } else {
+          // User switched to a different account
+          console.log("User switched to account:", accounts[0]);
+          setAccount(accounts[0]);
+          setStatusMessage(`Connected to Account: ${accounts[0]}`);
+          setIsConnected(true);
+          
+          // Reinitialize Web3 with the new account
+          try {
+            const Web3 = (await import('web3')).default;
+            const web3Instance = new Web3(window.ethereum);
+            setWeb3(web3Instance);
+            
+            // Reset token balance for new account
+            setTokenBalance('0');
+          } catch (error) {
+            console.error("Error reinitializing Web3:", error);
+          }
+        }
+      };
+
+      const handleChainChanged = (chainId: string) => {
+        console.log("User switched to network:", chainId);
+        // Optionally reload the page when network changes
+        window.location.reload();
+      };
+
+      window.ethereum.on("accountsChanged", handleAccountsChanged);
+      window.ethereum.on("chainChanged", handleChainChanged);
+
+      // Cleanup
+      return () => {
+        window.ethereum.removeListener("accountsChanged", handleAccountsChanged);
+        window.ethereum.removeListener("chainChanged", handleChainChanged);
+      };
+    }
+  }, []);
 
   const connectToMetaMask = async () => {
     if (window.ethereum) {
