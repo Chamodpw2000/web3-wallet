@@ -1,5 +1,49 @@
 
 import { useEffect, useState } from 'react';
+import React from 'react';
+// Generic Card component
+const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+  <div className={`bg-white shadow rounded-lg p-4 mb-4 ${className}`}>{children}</div>
+);
+
+// Section Card for headers or info
+const SectionCard: React.FC<{ title: string; children?: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+  <Card className={`border-l-4 border-blue-400 ${className}`}>
+    <div className="font-bold text-lg mb-2 text-blue-700">{title}</div>
+    {children}
+  </Card>
+);
+
+// Event Card for displaying event details
+const EventCard: React.FC<{ event: any; index?: number; total?: number }> = ({ event, index, total }) => (
+  <Card className="bg-gray-50">
+    <div className="font-bold text-lg mb-2">Event: {event.event || 'Unknown'}</div>
+    {typeof index === 'number' && typeof total === 'number' && (
+      <div className="font-semibold text-base mb-2">Event {index + 1} of {total}</div>
+    )}
+    <div className="mb-1"><span className="font-semibold text-gray-700">Block Number:</span> <span className="text-gray-600">{event.blockNumber || 'N/A'}</span></div>
+    <div className="mb-1"><span className="font-semibold text-gray-700">Transaction Hash:</span> <span className="text-gray-600 text-xs break-all">{event.transactionHash || 'N/A'}</span></div>
+    <div className="mb-3"><span className="font-semibold text-gray-700">Contract Address:</span> <span className="text-gray-600 text-xs break-all">{event.address || 'N/A'}</span></div>
+    {event.returnValues && (
+      <>
+        <div className="font-semibold mb-2">Event Data:</div>
+        <Card className="bg-blue-50 ml-2">
+          {Object.keys(event.returnValues).filter(key => isNaN(Number(key)) && key !== '__length__').map(key => (
+            <div className="mb-1" key={key}>
+              <span className="font-medium">{key}:</span> <span className="text-sm break-all">{typeof event.returnValues[key] === 'bigint' ? event.returnValues[key].toString() : event.returnValues[key]}</span>
+            </div>
+          ))}
+        </Card>
+      </>
+    )}
+    <div className="font-semibold mt-3 mb-2">Transaction Details:</div>
+    <Card className="bg-orange-50 ml-2">
+      <div className="mb-1"><span className="font-medium">Log Index:</span> <span>{event.logIndex || 'N/A'}</span></div>
+      <div className="mb-1"><span className="font-medium">Transaction Index:</span> <span>{event.transactionIndex || 'N/A'}</span></div>
+      <div className="mb-1"><span className="font-medium">Block Hash:</span> <span className="text-xs break-all">{event.blockHash || 'N/A'}</span></div>
+    </Card>
+  </Card>
+);
 import './App.css'
 
 // Extend Window interface to include ethereum
@@ -14,11 +58,13 @@ function App() {
   const [statusMessage, setStatusMessage] = useState<string>('You are not connected with MetaMask. Please connect to continue.');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [web3, setWeb3] = useState<any>(null);
-  const [eventResults, setEventResults] = useState<string>('');
+
   const [contractAddr, setContractAddr] = useState<string>('');
   const [tokenBalance, setTokenBalance] = useState<string>('0');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
   const [tokenAmount, setTokenAmount] = useState<string>('');
+  const [contract, setContract] = useState<any>(null);
+  const [connectedToSmartContract, setConnectedToSmartContract] = useState<boolean>(false);
 
   useEffect(() => {
     if (window.ethereum) {
@@ -69,6 +115,8 @@ function App() {
     }
   }, []);
 
+
+
   const connectToMetaMask = async () => {
     if (window.ethereum) {
       try {
@@ -103,139 +151,100 @@ function App() {
   };
  
   const abi = [
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "_to",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "_amount",
-				"type": "uint256"
-			}
-		],
-		"name": "sendTokens",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "Tokens sent from",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "Tokens received by",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "Number of tokens sent",
-				"type": "uint256"
-			}
-		],
-		"name": "TokensSent",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "tokenBalance",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_to",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "sendTokens",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "Tokens sent from",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "Tokens received by",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "Number of tokens sent",
+        "type": "uint256"
+      }
+    ],
+    "name": "TokensSent",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "tokenBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
 ];
 
-  // Custom serializer to handle BigInt values and format events nicely
-  const serializeEvent = (event: any): string => {
-    if (!event) return "No event data";
 
-    let formatted = "<div class='bg-gray-50 p-3 rounded-lg my-2'>";
-    
-    // Event basic info
-    formatted += `<div class='font-bold text-lg mb-2'>Event: ${event.event || 'Unknown'}</div>`;
-    formatted += `<div class='mb-1'><span class='font-semibold text-gray-700'>Block Number:</span> <span class='text-gray-600'>${event.blockNumber || 'N/A'}</span></div>`;
-    formatted += `<div class='mb-1'><span class='font-semibold text-gray-700'>Transaction Hash:</span> <span class='text-gray-600 text-xs break-all'>${event.transactionHash || 'N/A'}</span></div>`;
-    formatted += `<div class='mb-3'><span class='font-semibold text-gray-700'>Contract Address:</span> <span class='text-gray-600 text-xs break-all'>${event.address || 'N/A'}</span></div>`;
-    
-    // Return Values (the main event data)
-    if (event.returnValues) {
-      formatted += "<div class='font-semibold mb-2'>Event Data:</div>";
-      formatted += "<div class='ml-5 bg-blue-50 p-2 rounded'>";
-      
-      for (const key in event.returnValues) {
-        // Skip numeric indices and __length__ property
-        if (!isNaN(Number(key)) || key === '__length__') continue;
-        
-        let value = event.returnValues[key];
-        if (typeof value === 'bigint') {
-          value = value.toString();
-        }
-        formatted += `<div class='mb-1'><span class='font-medium'>${key}:</span> <span class='text-sm break-all'>${value}</span></div>`;
-      }
-      formatted += "</div>";
-    }
-    
-    // Transaction details
-    formatted += "<div class='font-semibold mt-3 mb-2'>Transaction Details:</div>";
-    formatted += "<div class='ml-5 bg-orange-50 p-2 rounded'>";
-    formatted += `<div class='mb-1'><span class='font-medium'>Log Index:</span> <span>${event.logIndex || 'N/A'}</span></div>`;
-    formatted += `<div class='mb-1'><span class='font-medium'>Transaction Index:</span> <span>${event.transactionIndex || 'N/A'}</span></div>`;
-    formatted += `<div class='mb-1'><span class='font-medium'>Block Hash:</span> <span class='text-xs break-all'>${event.blockHash || 'N/A'}</span></div>`;
-    formatted += "</div>";
-    
-    formatted += "</div>";
-    return formatted;
-  };
+  // Store events as array instead of HTML string
+  const [eventList, setEventList] = useState<any[]>([]);
+
+  
 
   async function listenToEvents() {
     try {
-      let contractInstance = new web3.eth.Contract(abi, contractAddr);
-      contractInstance.events.TokensSent().on("data",
+      contract.events.TokensSent().on("data",
         (event: any) => {
-        setEventResults(prevResults => serializeEvent(event) + "<hr class='my-5 border-t-2 border-gray-300'/>" + prevResults);
-      })
-    
+          setEventList(prev => [event, ...prev]);
+        });
       setStatusMessage("Listening to events on contract: " + contractAddr);
-        
     } catch (error) {
       console.error("Error listening to events:", error);
       setStatusMessage("Error: Failed to listen to events.");
-      setEventResults("")
+      setEventList([]);
     }
-  };
+  }
 
   async function getAllPastEvents() {
     if (!web3 || !contractAddr) {
@@ -245,47 +254,27 @@ function App() {
 
     try {
       setStatusMessage("Fetching past events...");
-      setEventResults("Loading past events...");
+      setEventList([]);
 
-      const contractInstance = new web3.eth.Contract(abi, contractAddr);
-      
-      // Get past events from the last 1000 blocks (you can adjust this)
       const currentBlock = await web3.eth.getBlockNumber();
       const fromBlock = Math.max(0, Number(currentBlock) - 1000);
-      
-      const pastEvents = await contractInstance.getPastEvents('TokensSent', {
+      const pastEvents = await contract.getPastEvents('TokensSent', {
         fromBlock: fromBlock,
         toBlock: 'latest'
       });
 
       if (pastEvents.length === 0) {
-        setEventResults("No past events found in the last 1000 blocks.");
+        setEventList([]);
         setStatusMessage("Past events search completed - no events found.");
         return;
       }
 
-      // Format and display past events
-      let formattedEvents = `<div class='text-center bg-green-100 p-4 rounded-lg mb-5'>
-        <div class='text-lg font-bold text-green-800'>Found ${pastEvents.length} Past Events</div>
-      </div>`;
-      
-      pastEvents.forEach((event: any, index: number) => {
-        formattedEvents += `<div class='my-5'>
-          <div class='font-semibold text-base mb-2'>Event ${index + 1} of ${pastEvents.length}</div>
-          ${serializeEvent(event)}
-        </div>`;
-        if (index < pastEvents.length - 1) {
-          formattedEvents += "<hr class='my-5 border-t-2 border-gray-400'/>";
-        }
-      });
-
-      setEventResults(formattedEvents);
+      setEventList(pastEvents);
       setStatusMessage(`Successfully retrieved ${pastEvents.length} past events.`);
-      
     } catch (error: any) {
       console.error("Error fetching past events:", error);
       setStatusMessage("Error: Failed to fetch past events - " + (error.message || "Unknown error"));
-      setEventResults("");
+      setEventList([]);
     }
   }
 
@@ -298,10 +287,9 @@ function App() {
 
     try {
       setStatusMessage("Reading token balance...");
-      const contractInstance = new web3.eth.Contract(abi, contractAddr);
       
       // Call the tokenBalance function from the smart contract
-      const balance = await contractInstance.methods.tokenBalance(account).call();
+      const balance = await contract.methods.tokenBalance(account).call();
       setTokenBalance(balance.toString());
       setStatusMessage(`Token balance retrieved: ${balance} tokens`);
       
@@ -333,10 +321,9 @@ function App() {
 
     try {
       setStatusMessage("Sending tokens...");
-      const contractInstance = new web3.eth.Contract(abi, contractAddr);
       
       // Send transaction using the sendTokens function
-      const result = await contractInstance.methods.sendTokens(recipientAddress, amount).send({
+      const result = await contract.methods.sendTokens(recipientAddress, amount).send({
         from: account,
         gas: 300000, // Adjust gas limit as needed
       });
@@ -356,11 +343,39 @@ function App() {
     }
   };
 
+  function connectToSmartContract(): void {
+  
+    if (!web3 || !contractAddr || !account) {
+      setStatusMessage("Error: Web3, contract address, or account not available.");
+      return;
+    }
+
+    try {
+      setStatusMessage("Connecting to smart contract...");
+      const contractInstance = new web3.eth.Contract(abi, contractAddr);
+      setContract(contractInstance);
+      setConnectedToSmartContract(true);
+      setStatusMessage("Connected to smart contract successfully.");
+    } catch (error: any) {
+      console.error("Error connecting to smart contract:", error);
+      setStatusMessage("Error: Failed to connect to smart contract - " + (error.message || "Unknown error"));
+    }
+  }
+
+  function disconnectFromSmartContract(): void {
+    setContract(null);
+    setConnectedToSmartContract(false);
+    setStatusMessage("Disconnected from smart contract.");
+  }
+
   return (
-    <>
-      <div className='text-2xl py-5 text-center' >
+    <div className='max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen'>
+      <div className='text-4xl py-5 text-center font-bold ' >
         Welcome to the Web3 Wallet App!
       </div>
+
+
+      <img src="/Images/logo.png" alt="Logo" className='mx-auto  w-xs' />
 
       <div>
         <p className='text-center text-lg'>
@@ -385,6 +400,74 @@ function App() {
       <div className='text-center mt-10 text-lg'>
         {statusMessage}
       </div>
+<div className=' items-center justify-center w-full my-[50px] hidden lg:flex'>
+           <input 
+          type="text" 
+          value={contractAddr} 
+          onChange={(e) => setContractAddr(e.target.value)} 
+          placeholder="Enter Contract Address" 
+          className='border border-gray-300 rounded-lg p-3 w-full max-w-md text-center mx-auto'
+        />
+</div>
+      <div className='flex items-center justify-center gap-x-5 mt-8 flex-col lg:flex-row gap-y-[20px]'>
+    <input 
+          type="text" 
+          value={contractAddr} 
+          onChange={(e) => setContractAddr(e.target.value)} 
+          placeholder="Enter Contract Address" 
+          className='border border-gray-300 rounded-lg p-3 lg:hidden w-full max-w-md text-center mx-auto'
+        />
+        <button 
+          className='bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+          onClick={connectToSmartContract}
+          disabled={!isConnected || !contractAddr}
+        >
+          Connect to Smart Contract
+        </button>
+         <button 
+          className='bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+          onClick={disconnectFromSmartContract}
+          disabled={!isConnected || !connectedToSmartContract}
+        >
+          Disconnect from Smart Contract
+        </button>
+        <button 
+          className='bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+          onClick={listenToEvents}
+          disabled={!isConnected || !connectedToSmartContract}
+        >
+          Listen to Events
+        </button>
+        <button 
+          className='bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+          onClick={getAllPastEvents}
+          disabled={!isConnected || !connectedToSmartContract}
+        >
+          Get Past Events
+        </button>
+      </div>
+
+
+      {(eventList.length > 0 || statusMessage) && (
+        <div className='my-8 mx-4'>
+          <h3 className='text-xl font-semibold text-center mb-4'>Event Results:</h3>
+          {eventList.length > 0 ? (
+            <SectionCard title={`Found ${eventList.length} Past Events`} className="bg-green-100 text-green-800 text-center" />
+          ) : null}
+          <div className='max-h-96 overflow-y-auto text-sm'>
+            {eventList.length > 0 ? (
+              eventList.map((event, idx) => (
+                <React.Fragment key={event.id || event.transactionHash || idx}>
+                  <EventCard event={event} index={idx} total={eventList.length} />
+                  {idx < eventList.length - 1 && <hr className='my-5 border-t-2 border-gray-400' />}
+                </React.Fragment>
+              ))
+            ) : (
+              <Card className="bg-gray-100 text-gray-700 text-center">No events found.</Card>
+            )}
+          </div>
+        </div>
+      )}
 
       {isConnected && (
         <div className='mt-8 space-y-6'>
@@ -396,7 +479,7 @@ function App() {
               <button 
                 className='bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-400 mt-3 font-semibold disabled:bg-gray-400'
                 onClick={getTokenBalance}
-                disabled={!contractAddr}
+                disabled={!connectedToSmartContract}
               >
                 Refresh Balance
               </button>
@@ -435,7 +518,7 @@ function App() {
               <button 
                 className='w-full bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-400 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
                 onClick={sendTokens}
-                disabled={!contractAddr || !recipientAddress || !tokenAmount}
+                disabled={!contractAddr || !recipientAddress || !tokenAmount || !connectedToSmartContract}
               >
                 Send Tokens
               </button>
@@ -444,41 +527,7 @@ function App() {
         </div>
       )}
 
-      <div className='flex items-center justify-center gap-x-5 mt-8'>
-        <input 
-          type="text" 
-          value={contractAddr} 
-          onChange={(e) => setContractAddr(e.target.value)} 
-          placeholder="Enter Contract Address" 
-          className='border border-gray-300 rounded-lg p-3 w-full max-w-md text-center'
-        />
-        <button 
-          className='bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
-          onClick={listenToEvents}
-          disabled={!isConnected || !contractAddr}
-        >
-          Listen to Events
-        </button>
-        <button 
-          className='bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
-          onClick={getAllPastEvents}
-          disabled={!isConnected || !contractAddr}
-        >
-          Get Past Events
-        </button>
-      </div>
-
-      {eventResults && (
-        <div className='my-8 mx-4 '>
-          <h3 className='text-xl font-semibold text-center mb-4'>Event Results:</h3>
-          <div 
-            className='bg-gray-100 border rounded-lg p-4 max-h-96 overflow-y-auto text-sm'
-            dangerouslySetInnerHTML={{ __html: eventResults }}
-          />
-        </div>
-      )}
-
-    </>
+   </div>
   )
 }
 
