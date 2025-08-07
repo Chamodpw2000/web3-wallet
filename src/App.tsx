@@ -1,5 +1,6 @@
 
 import { useEffect, useState } from 'react';
+import { FiLogOut } from 'react-icons/fi';
 import React from 'react';
 // Generic Card component
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -55,17 +56,17 @@ declare global {
 
 function App() {
   const [account, setAccount] = useState<string>('');
-  const [statusMessage, setStatusMessage] = useState<string>('You are not connected with MetaMask. Please connect to continue.');
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [web3, setWeb3] = useState<any>(null);
 
-  const [contractAddr, setContractAddr] = useState<string>('');
+  const [contractAddr] = useState<string>(import.meta.env.VITE_SMART_CONTRACT_ADDRESS || '');
   const [tokenBalance, setTokenBalance] = useState<string>('0');
   const [recipientAddress, setRecipientAddress] = useState<string>('');
   const [tokenAmount, setTokenAmount] = useState<string>('');
   const [contract, setContract] = useState<any>(null);
   const [connectedToSmartContract, setConnectedToSmartContract] = useState<boolean>(false);
-
+  const [authMessage, setAuthMessage] = useState<string>('Please connect to MetaMask to start using the app.');
   useEffect(() => {
     if (window.ethereum) {
       const handleAccountsChanged = async (accounts: string[]) => {
@@ -83,13 +84,13 @@ function App() {
           setAccount(accounts[0]);
           setStatusMessage(`Connected to Account: ${accounts[0]}`);
           setIsConnected(true);
-          
+
           // Reinitialize Web3 with the new account
           try {
             const Web3 = (await import('web3')).default;
             const web3Instance = new Web3(window.ethereum);
             setWeb3(web3Instance);
-            
+
             // Reset token balance for new account
             setTokenBalance('0');
           } catch (error) {
@@ -124,17 +125,18 @@ function App() {
         const accounts = await window.ethereum.request({
           method: 'eth_requestAccounts'
         });
-        
+
         // Dynamically import Web3 to avoid SSR issues
         const Web3 = (await import('web3')).default;
         const web3Instance = new Web3(window.ethereum);
-        
+
         setWeb3(web3Instance);
         setAccount(accounts[0]);
-        setStatusMessage(`Connected to Account: ${accounts[0]}`);
+    
         setIsConnected(true);
-        
-        console.log("Connected to MetaMask:", accounts[0]);
+
+      
+        setAuthMessage(`Connected to Account: ${accounts[0]}`)
       } catch (error: any) {
         if (error.code === 4001) {
           setStatusMessage("Error: Permission denied.");
@@ -149,88 +151,106 @@ function App() {
       console.log("MetaMask not detected");
     }
   };
- 
+  // Connect to smart contract when web3, account, and contractAddr are all available
+  React.useEffect(() => {
+    if (web3 && account && contractAddr) {
+      try {
+        setStatusMessage("Connecting to smart contract...");
+        const contractInstance = new web3.eth.Contract(abi, contractAddr);
+        setContract(contractInstance);
+        setConnectedToSmartContract(true);
+        setStatusMessage("Connected to smart contract successfully.");
+      } catch (error: any) {
+        console.error("Error connecting to smart contract:", error);
+        setStatusMessage("Error: Failed to connect to smart contract - " + (error.message || "Unknown error"));
+      }
+    } else {
+      setConnectedToSmartContract(false);
+      setContract(null);
+    }
+  }, [web3, account, contractAddr]);
+
   const abi = [
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "sendTokens",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "Tokens sent from",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "Tokens received by",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "Number of tokens sent",
-        "type": "uint256"
-      }
-    ],
-    "name": "TokensSent",
-    "type": "event"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "tokenBalance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  }
-];
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "sendTokens",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "Tokens sent from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "Tokens received by",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "Number of tokens sent",
+          "type": "uint256"
+        }
+      ],
+      "name": "TokensSent",
+      "type": "event"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "tokenBalance",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ];
 
 
   // Store events as array instead of HTML string
   const [eventList, setEventList] = useState<any[]>([]);
 
-  
+
 
   async function listenToEvents() {
     try {
@@ -277,6 +297,22 @@ function App() {
       setEventList([]);
     }
   }
+function disconectFromMetamask() {
+console.log("Disconnecting from MetaMask...");
+
+  
+      // Reset state variables
+      setAccount('');
+      setIsConnected(false);
+      setWeb3(null);
+      setTokenBalance('0');
+      setContract(null);
+      
+      setConnectedToSmartContract(false);
+      setStatusMessage('Disconnected from MetaMask.');
+      setAuthMessage('Please connect to MetaMask to start using the app.');
+    
+  }
 
   // Function to read token balance for the connected account
   const getTokenBalance = async () => {
@@ -286,13 +322,11 @@ function App() {
     }
 
     try {
-      setStatusMessage("Reading token balance...");
-      
+
       // Call the tokenBalance function from the smart contract
       const balance = await contract.methods.tokenBalance(account).call();
       setTokenBalance(balance.toString());
-      setStatusMessage(`Token balance retrieved: ${balance} tokens`);
-      
+
     } catch (error: any) {
       console.error("Error reading token balance:", error);
       setStatusMessage("Error: Failed to read token balance - " + (error.message || "Unknown error"));
@@ -321,57 +355,35 @@ function App() {
 
     try {
       setStatusMessage("Sending tokens...");
-      
+
       // Send transaction using the sendTokens function
       const result = await contract.methods.sendTokens(recipientAddress, amount).send({
         from: account,
         gas: 300000, // Adjust gas limit as needed
       });
-      
+
       setStatusMessage(`Tokens sent successfully! Transaction hash: ${result.transactionHash}`);
-      
+
       // Update token balance after successful transaction
       await getTokenBalance();
-      
+
       // Clear form
       setRecipientAddress('');
       setTokenAmount('');
-      
+
     } catch (error: any) {
       console.error("Error sending tokens:", error);
       setStatusMessage("Error: Failed to send tokens - " + (error.message || "Unknown error"));
     }
   };
 
-  function connectToSmartContract(): void {
-  
-    if (!web3 || !contractAddr || !account) {
-      setStatusMessage("Error: Web3, contract address, or account not available.");
-      return;
-    }
 
-    try {
-      setStatusMessage("Connecting to smart contract...");
-      const contractInstance = new web3.eth.Contract(abi, contractAddr);
-      setContract(contractInstance);
-      setConnectedToSmartContract(true);
-      setStatusMessage("Connected to smart contract successfully.");
-    } catch (error: any) {
-      console.error("Error connecting to smart contract:", error);
-      setStatusMessage("Error: Failed to connect to smart contract - " + (error.message || "Unknown error"));
-    }
-  }
 
-  function disconnectFromSmartContract(): void {
-    setContract(null);
-    setConnectedToSmartContract(false);
-    setStatusMessage("Disconnected from smart contract.");
-  }
 
   return (
     <div className='max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen'>
       <div className='text-4xl py-5 text-center font-bold ' >
-        Welcome to the Web3 Wallet App!
+        Welcome to the Vezo Wallet!
       </div>
 
 
@@ -379,67 +391,64 @@ function App() {
 
       <div>
         <p className='text-center text-lg'>
-          This is a simple wallet application built with React and TypeScript with Solidity Smart Contracts.
+        Wallet for Vezo Token  -           Explore the features and functionalities to manage your digital assets.
+
         </p>
         <p className='text-center text-lg'>
-          Explore the features and functionalities to manage your digital assets.
+          Devoloped with ❤️ by Vezo Team
         </p>
       </div>
 
-      <button 
-        className='bg-blue-500 text-white px-4 mt-5 mx-auto flex items-center justify-center rounded-2xl py-2 hover:bg-blue-400 cursor-pointer' 
-        onClick={connectToMetaMask}
-        disabled={isConnected}
-      >
-        <span className='font-semibold text-xl'>
-          {isConnected ? 'Connected to MetaMask' : 'Connect With MetaMask'}
-        </span> 
-        <img src="/Images/metamask.png" alt="MetaMask Logo" className='object-contain w-[100px]' />
-      </button>
 
-      <div className='text-center mt-10 text-lg'>
+      <div className='flex flex-row items-center justify-center gap-4 mt-5'>
+        <button
+          className='bg-blue-500 text-white px-4 flex items-center justify-center rounded-2xl py-2 hover:bg-blue-400 cursor-pointer'
+          onClick={connectToMetaMask}
+          disabled={isConnected}
+        >
+          <span className='font-semibold text-xl'>
+            {isConnected ? 'Connected to MetaMask' : 'Connect With MetaMask'}
+          </span>
+          <img src="/Images/metamask.png" alt="MetaMask Logo" className='object-contain w-[100px]' />
+        </button>
+        {isConnected && (
+          <button
+            className='bg-red-500 text-white w-10 h-10 rounded-lg hover:bg-red-400 cursor-pointer flex items-center justify-center ml-2'
+            title='Logout'
+            onClick={disconectFromMetamask}
+            disabled={!isConnected}
+          >
+            <FiLogOut size={24} />
+          </button>
+        )}
+      </div>
+
+
+
+      
+      <div className='text-center mt-5 text-lg'>
+        {authMessage}
+      </div>
+
+      <div className='text-center mt-5 text-lg'>
         {statusMessage}
       </div>
-<div className=' items-center justify-center w-full my-[50px] hidden lg:flex'>
-           <input 
-          type="text" 
-          value={contractAddr} 
-          onChange={(e) => setContractAddr(e.target.value)} 
-          placeholder="Enter Contract Address" 
-          className='border border-gray-300 rounded-lg p-3 w-full max-w-md text-center mx-auto'
-        />
-</div>
-      <div className='flex items-center justify-center gap-x-5 mt-8 flex-col lg:flex-row gap-y-[20px]'>
-    <input 
-          type="text" 
-          value={contractAddr} 
-          onChange={(e) => setContractAddr(e.target.value)} 
-          placeholder="Enter Contract Address" 
-          className='border border-gray-300 rounded-lg p-3 lg:hidden w-full max-w-md text-center mx-auto'
-        />
-        <button 
-          className='bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
-          onClick={connectToSmartContract}
-          disabled={!isConnected || !contractAddr}
-        >
-          Connect to Smart Contract
-        </button>
-         <button 
-          className='bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
-          onClick={disconnectFromSmartContract}
-          disabled={!isConnected || !connectedToSmartContract}
-        >
-          Disconnect from Smart Contract
-        </button>
-        <button 
-          className='bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+
+
+      
+      <div className='flex items-center justify-center gap-x-5 mt-5  flex-col lg:flex-row gap-y-[20px] '>
+
+
+
+        <button
+          className='bg-green-500 text-white px-6 py-3 rounded-lg  hover:bg-green-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
           onClick={listenToEvents}
           disabled={!isConnected || !connectedToSmartContract}
         >
           Listen to Events
         </button>
-        <button 
-          className='bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed' 
+        <button
+          className='bg-purple-500 text-white px-6 py-3  rounded-lg hover:bg-purple-400 cursor-pointer font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
           onClick={getAllPastEvents}
           disabled={!isConnected || !connectedToSmartContract}
         >
@@ -476,7 +485,7 @@ function App() {
             <div className='bg-blue-50 p-4 rounded-lg inline-block'>
               <h3 className='text-lg font-semibold mb-2'>Your Token Balance</h3>
               <div className='text-2xl font-bold text-blue-600'>{tokenBalance} tokens</div>
-              <button 
+              <button
                 className='bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-400 mt-3 font-semibold disabled:bg-gray-400'
                 onClick={getTokenBalance}
                 disabled={!connectedToSmartContract}
@@ -494,11 +503,11 @@ function App() {
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
                   Recipient Address
                 </label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={recipientAddress}
                   onChange={(e) => setRecipientAddress(e.target.value)}
-                  placeholder="0x..." 
+                  placeholder="0x..."
                   className='w-full border border-gray-300 rounded-lg p-3 text-sm'
                 />
               </div>
@@ -506,16 +515,16 @@ function App() {
                 <label className='block text-sm font-medium text-gray-700 mb-2'>
                   Token Amount
                 </label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={tokenAmount}
                   onChange={(e) => setTokenAmount(e.target.value)}
-                  placeholder="Enter amount" 
+                  placeholder="Enter amount"
                   className='w-full border border-gray-300 rounded-lg p-3'
                   min="1"
                 />
               </div>
-              <button 
+              <button
                 className='w-full bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-400 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
                 onClick={sendTokens}
                 disabled={!contractAddr || !recipientAddress || !tokenAmount || !connectedToSmartContract}
@@ -527,7 +536,7 @@ function App() {
         </div>
       )}
 
-   </div>
+    </div>
   )
 }
 
