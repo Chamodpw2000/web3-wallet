@@ -373,7 +373,7 @@ console.log("Disconnecting from MetaMask...");
 
     } catch (error: any) {
       console.error("Error sending tokens:", error);
-      setStatusMessage("Error: Failed to send tokens - " + (error.message || "Unknown error"));
+      setStatusMessage("Failed to send tokens Insufficient balance or contract error");
     }
   };
 
@@ -486,7 +486,7 @@ console.log("Disconnecting from MetaMask...");
               <h3 className='text-lg font-semibold mb-2'>Your Token Balance</h3>
               <div className='text-2xl font-bold text-blue-600'>{tokenBalance} tokens</div>
               <button
-                className='bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-400 mt-3 font-semibold disabled:bg-gray-400'
+                className='bg-blue-500 text-white px-4 py-2 cursor-pointerrounded-lg hover:bg-blue-400 mt-3 font-semibold disabled:bg-gray-400'
                 onClick={getTokenBalance}
                 disabled={!connectedToSmartContract}
               >
@@ -525,7 +525,7 @@ console.log("Disconnecting from MetaMask...");
                 />
               </div>
               <button
-                className='w-full bg-red-500 text-white px-6 py-3 rounded-lg hover:bg-red-400 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
+                className='w-full bg-red-500 cursor-pointer text-white px-6 py-3 rounded-lg hover:bg-red-400 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed'
                 onClick={sendTokens}
                 disabled={!contractAddr || !recipientAddress || !tokenAmount || !connectedToSmartContract}
               >
